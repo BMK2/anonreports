@@ -1,0 +1,16 @@
+{
+  "name": "@botsmk2/anonreports",
+  "version": "1.0.0",
+  "description": "Allows users to make anonymous reports to the admins",
+  "license": "MIT",
+  "repository": "battlemanmk2/anonreports",
+  "main": "index.js",
+  "keywords": [
+    "battlemanmk2",
+    "botsmk2"
+  ],
+  "dependencies": {
+    "discord.js": "12.2.0",
+    "mongoose": "5.9.10"
+  }
+}

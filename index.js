@@ -15,8 +15,11 @@ class AnonReports {
     const command = args.shift().toLowerCase();
 
     switch(command) {
-      case 'report':
-        this.createAnonChannel();
+      case 'test':
+        this.createAnonChannel().then(async (channel) => {
+          let invite = await channel.createInvite({maxAge: 0, unique: true, reason: 'A user has created a report; see it here'});
+          channel.send(invite.url);
+        });
         break;
     }
   }
@@ -24,15 +27,23 @@ class AnonReports {
   parsePrivateMessage(message) {
     const args = message.content.slice(process.env.PREFIX.length).trim().split(/ +/g);
     const command = args.shift().toLowerCase();
-
-
+    switch(command) {
+      case 'report':
+        this.createAnonChannel().then(async (channel) => {
+          let invite = await channel.createInvite({maxAge: 0, unique: true, reason: 'A user has created a report; see it here'});
+          message.reply(`You have created an anonymous report to the admins. Here is the invite to the channel ${invite.url}`);
+        });
+        break;
+    }
   }
+
+
 
   createAnonChannel() {
     let reportNumber = this.getReportCategory().children.size + 1;
     let channelName = `Anonymous_Report-${reportNumber}`;
     let topic = `This channel is only for discussing the anonymous report #${reportNumber}`;
-    this.createChannel(channelName, this.getReportCategory(), topic, 100-reportNumber);
+    return this.createChannel(channelName, this.getReportCategory(), topic, 100-reportNumber);
   }
 
   getReportCategory() {
@@ -48,9 +59,7 @@ class AnonReports {
     if( parent != null) options.parent = parent;
     if( topic != null) options.topic = topic;
     if( position != null) options.position = position;
-    this.getHomeGuild().channels.create(name, options).then(channel => {
-      console.log(`Created ${channel.name} at position ${channel.position}`);
-    }).catch(console.error);
+    return this.getHomeGuild().channels.create(name, options).catch(console.error);
   }
 
 }

@@ -1,5 +1,8 @@
 const Discord = require('discord.js');
-const Report = require('./report.js');
+const Report = require('./Report.js');
+const mongoose = require('mongoose');
+const ReportSchema = require('./ReportSchema.js');
+
 
 //Requires process.env.REPORTS_CATEGORY_ID
 //Requires process.env.HOME_GUILD
@@ -12,6 +15,7 @@ class AnonReports {
     this.discordClient.on('privateMessage', (message) => {this.parsePrivateMessage(message)});
     this.discordClient.on('message', (message) => {this.parseMessage(message)});
     this.activeReports = [];
+    this.loadReports();
   }
 
   parseCommand(message) {
@@ -76,11 +80,12 @@ class AnonReports {
 
   openNewReport(message) {
     //TODO: Need to have the report then saved to mongodb
-    let newReport = new Report(message.author.id);
+    let newReport = new Report(this.discordClient, message.author.id);
     this.createAnonChannel().then(async (channel) => {
       channel.send(`Anything I post in this channel has been sent from the user who created this report`);
       newReport.setChannelID(channel.id);
       message.reply(`You have created an anonymous report to the admins. Until you use the command \`${process.env.PREFIX}report close\`, anything you send me will be sent to the admins.`);
+      newReport.save();
     });
     this.activeReports.push(newReport);
   }
@@ -98,6 +103,18 @@ class AnonReports {
     let channelName = `Anonymous_Report-${reportNumber}`;
     let topic = `This channel is only for discussing the anonymous report #${reportNumber}`;
     return this.createChannel(channelName, this.getReportCategory(), topic, 100-reportNumber);
+  }
+
+  loadReports() {
+    const ReportModel = this.discordClient.db.botDB.model('AnonReports', ReportSchema);
+    ReportModel.find(function(error, docs) {
+      docs.forEach(doc => {
+        let savedReport = new Report(this.discordClient, doc.reporterID);
+        savedReport.setChannelID(doc.reportChannelID);
+        this.activeReports.push(savedReport);
+      });
+      console.log(`Loaded ${this.activeReports.length} anonymous reports from the database`);
+    }.bind(this));
   }
 
   hasActiveReport(reporterID) {

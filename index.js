@@ -38,11 +38,19 @@ class AnonReports {
     switch(command) {
       case 'report':
         if (args[0].toLowerCase() === 'open') {
-          this.openNewReport(message);
+          if(this.hasActiveReport(message.author.id)) {
+            message.reply(`You already have a report open`);
+          } else {
+            this.openNewReport(message);
+          }
           return;
         }
         if (args[0].toLowerCase() === 'close') {
-          this.closeReport(message);
+          if(!this.hasActiveReport(message.author.id)) {
+            message.reply(`You don't currently have a report open`);
+          } else {
+            this.closeReport(message);
+          }
           return;
         }
         break;
@@ -57,7 +65,13 @@ class AnonReports {
   }
 
   passMessageToReporter(activeReport, message) {
-    this.getReporterByID(activeReport.reporterID).send(message);
+    const messageEmbed = new Discord.MessageEmbed();
+    messageEmbed.setAuthor(message.author.username, message.author.avatarURL());
+    messageEmbed.setDescription(message);
+    this.getReporterByID(activeReport.reporterID).send({embed: messageEmbed});
+    for(let attachment of message.attachments) {
+      this.getReporterByID(activeReport.reporterID).send(attachment);
+    }
   }
 
   openNewReport(message) {
@@ -73,6 +87,8 @@ class AnonReports {
 
   closeReport(message) {
     //TODO: Need to have the report removed from mongodb
+    this.getActiveChannelByID(this.getActiveReportByReporterID(message.author.id).reportChannelID)
+      .send(`The reporter has closed their ticket and will no longer receive any messages sent to this channel`);
     this.activeReports = this.activeReports.filter(report => report.reporterID != message.author.id);
     message.reply(`You have closed the anonymous report. I will no longer convey your messages to the admins`);
   }
@@ -82,6 +98,10 @@ class AnonReports {
     let channelName = `Anonymous_Report-${reportNumber}`;
     let topic = `This channel is only for discussing the anonymous report #${reportNumber}`;
     return this.createChannel(channelName, this.getReportCategory(), topic, 100-reportNumber);
+  }
+
+  hasActiveReport(reporterID) {
+    return this.activeReports.some(report => report.reporterID == reporterID);
   }
 
   getActiveReportByReporterID(reporterID) {

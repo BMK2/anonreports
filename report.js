@@ -6,6 +6,7 @@ class Report {
     this.discordClient = discordClient;
     this.reporterID = reporterID;
     this.reportChannelID;
+    this.open = true;
   }
 
   setChannelID(channelID) {
@@ -19,14 +20,16 @@ class Report {
         if(dbReport) {
           ReportModel.updateOne({reportChannelID: this.reportChannelID}, {
             reporterID: this.reporterID,
-            reportChannelID: this.reportChannelID
+            reportChannelID: this.reportChannelID,
+            open: this.open
           }, (error, result) => {
             if(error) console.error(`Error updating new report on the database: ${error}`);
           });
         } else {
           let dbReport = new ReportModel({
             reporterID: this.reporterID,
-            reportChannelID: this.reportChannelID
+            reportChannelID: this.reportChannelID,
+            open: this.open
           });
           dbReport.save((error) => {if(error) console.error(`Error saving new report to database: ${error}`);});
         }

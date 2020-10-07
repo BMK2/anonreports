@@ -7,31 +7,42 @@ const ReportSchema = require('./ReportSchema.js');
 //Requires process.env.REPORTS_CATEGORY_ID
 //Requires process.env.HOME_GUILD
 
-
 class AnonReports {
   constructor(client) {
     this.discordClient = client;
     this.discordClient.on('commandPrefixUsed', (message) => {this.parseCommand(message)});
     this.discordClient.on('privateMessage', (message) => {this.parsePrivateMessage(message)});
     this.discordClient.on('message', (message) => {this.parseMessage(message)});
-    this.activeReports = [];
+    this.anonymousReports = [];
     this.loadReports();
   }
 
   parseCommand(message) {
     const args = message.content.slice(process.env.PREFIX.length).trim().split(/ +/g);
     const command = args.shift().toLowerCase();
-
-    switch(command) {
-      case 'test':
-        this.createAnonChannel().catch(console.error());
-        break;
+    if(command === 'report') {
+      switch(args[0].toLowerCase()) {
+        case 'export':
+          console.log(`Exporting a single anonymous report`);
+          break;
+        case 'exportall':
+          console.log(`Exporting ${this.anonymousReports.length} existing anonymous reports`);
+          break;
+        case 'reopen':
+          console.log(`The admins have reopened an anonymous report`);
+          this.adminReopenedReport(message);
+          break;
+        case 'close':
+          console.log(`The admins have closed an anonymous report`);
+          this.adminClosedReport(message);
+          break;
+      }
     }
   }
 
   parseMessage(message) {
     if (message.author.bot) return;
-    if(this.activeReports.some(report => report.reportChannelID == message.channel.id)) {
+    if(this.anonymousReports.some(report => report.open && report.reportChannelID == message.channel.id)) {
       this.passMessageToReporter(this.getActiveReportByChannelID(message.channel.id), message);
     }
   }
@@ -53,13 +64,13 @@ class AnonReports {
           if(!this.hasActiveReport(message.author.id)) {
             message.reply(`You don't currently have a report open`);
           } else {
-            this.closeReport(message);
+            this.userClosedReport(message);
           }
           return;
         }
         break;
     }
-    if(this.activeReports.some(report => report.reporterID == message.author.id)) {
+    if(this.anonymousReports.some(report => report.open && report.reporterID == message.author.id)) {
       this.passMessageToChannel(this.getActiveReportByReporterID(message.author.id), message);
     }
   }
@@ -96,18 +107,31 @@ class AnonReports {
       message.reply(`You have created an anonymous report to the admins. Until you use the command \`${process.env.PREFIX}report close\`, anything you send me will be sent to the admins.`);
       newReport.save();
     });
-    this.activeReports.push(newReport);
+    this.anonymousReports.push(newReport);
   }
 
-  closeReport(message) {
-    //TODO: Need to have the report removed from mongodb
-    this.getActiveChannelByID(this.getActiveReportByReporterID(message.author.id).reportChannelID)
-      .send(`The reporter has closed their ticket and will no longer receive any messages sent to this channel`);
-    this.activeReports = this.activeReports.filter(report => report.reporterID != message.author.id);
+  adminReopenedReport(message) {
+    message.reply(`You have reopened this anonymous report. The reporter will begin receiving any message sent to this channel and will be able to send messages to this channel as well. They have been notified of this.`);
+    this.getReporterByID(this.getActiveReportByChannelID(message.channel.id).reporterID).send(`The admins have reopened this report. They will now begin receiving any message you send in this DM and will be able to message you through the report channel.`);
+    this.getActiveReportByChannelID(message.channel.id).open = true;
+    this.getActiveReportByChannelID(message.channel.id).save()
+  }
+
+  adminClosedReport(message) {
+    this.getActiveReportByChannelID(message.channel.id).open = false;
+    this.getActiveReportByChannelID(message.channel.id).save()
+    message.reply(`You have closed this anonymous report. The reporter will no longer receive any messages sent to this channel nor be able to send messages to this channel. They have been notified as well.`);
+    this.getReporterByID(this.getActiveReportByChannelID(message.channel.id).reporterID).send(`The admins have closed this report. They will no longer receive any message sent to this channel nor can they message you through the report channel.`);
+  }
+
+  userClosedReport(message) {
+    this.getActiveReportByReporterID(message.author.id).open = false;
+    this.getActiveReportByReporterID(message.author.id).save()
+    this.getActiveChannelByID(this.getActiveReportByReporterID(message.author.id).reportChannelID).send(`The reporter has closed this report and will no longer receive any messages sent to this channel`);
     message.reply(`You have closed the anonymous report. I will no longer convey your messages to the admins`);
   }
 
-  createAnonChannel(userID) {
+  createAnonChannel() {
     let reportNumber = this.getReportCategory().children.size + 1;
     let channelName = `Anonymous_Report-${reportNumber}`;
     let topic = `This channel is only for discussing the anonymous report #${reportNumber}`;
@@ -120,22 +144,23 @@ class AnonReports {
       docs.forEach(doc => {
         let savedReport = new Report(this.discordClient, doc.reporterID);
         savedReport.setChannelID(doc.reportChannelID);
-        this.activeReports.push(savedReport);
+        savedReport.open = doc.open;
+        this.anonymousReports.push(savedReport);
       });
-      console.log(`Loaded ${this.activeReports.length} anonymous reports from the database`);
+      console.log(`Loaded ${this.anonymousReports.length} anonymous reports from the database`);
     }.bind(this));
   }
 
   hasActiveReport(reporterID) {
-    return this.activeReports.some(report => report.reporterID == reporterID);
+    return this.anonymousReports.some(report => report.open && report.reporterID == reporterID);
   }
 
   getActiveReportByReporterID(reporterID) {
-    return this.activeReports.find(report => report.reporterID == reporterID);
+    return this.anonymousReports.find(report => report.reporterID == reporterID);
   }
 
   getActiveReportByChannelID(channelID) {
-    return this.activeReports.find(report => report.reportChannelID == channelID);
+    return this.anonymousReports.find(report => report.reportChannelID == channelID);
   }
 
   getActiveChannelByID(channelID) {

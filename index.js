@@ -65,24 +65,33 @@ class AnonReports {
   }
 
   passMessageToChannel(activeReport, message) {
-    this.getActiveChannelByID(activeReport.reportChannelID).send(message);
+    let reportChannel = this.getActiveChannelByID(activeReport.reportChannelID);
+    reportChannel.send(message.content);
+    for(let attachment of message.attachments) {
+      reportChannel.send(attachment);
+    }
   }
 
   passMessageToReporter(activeReport, message) {
     const messageEmbed = new Discord.MessageEmbed();
     messageEmbed.setAuthor(message.author.username, message.author.avatarURL());
-    messageEmbed.setDescription(message);
-    this.getReporterByID(activeReport.reporterID).send({embed: messageEmbed});
+    messageEmbed.setDescription(message.content);
+    let reporter = this.getReporterByID(activeReport.reporterID);
     for(let attachment of message.attachments) {
-      this.getReporterByID(activeReport.reporterID).send(attachment);
+      let image = attachment[1];
+      messageEmbed.setImage(image.attachment);
+      console.log(image);
     }
+    reporter.send({embed: messageEmbed});
+    // for(let attachment of message.attachments) {
+    //   reporter.send(attachment);
+    // }
   }
 
   openNewReport(message) {
     //TODO: Need to have the report then saved to mongodb
     let newReport = new Report(this.discordClient, message.author.id);
-    this.createAnonChannel().then(async (channel) => {
-      channel.send(`Anything I post in this channel has been sent from the user who created this report`);
+    this.createAnonChannel().then(async (channel) => {channel.send(`Anything I post in this channel has been sent from the user who created this report`);
       newReport.setChannelID(channel.id);
       message.reply(`You have created an anonymous report to the admins. Until you use the command \`${process.env.PREFIX}report close\`, anything you send me will be sent to the admins.`);
       newReport.save();

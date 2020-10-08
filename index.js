@@ -12,6 +12,7 @@ const write = require('write');
 
 class AnonReports {
   constructor(client) {
+    console.log("         --==Anonymous Reports by BotsMK2==--");
     this.discordClient = client;
     this.discordClient.on('commandPrefixUsed', (message) => {this.parseCommand(message)});
     this.discordClient.on('privateMessage', (message) => {this.parsePrivateMessage(message)});
@@ -27,7 +28,10 @@ class AnonReports {
       switch(args[0].toLowerCase()) {
         case 'export':
           console.log(`Exporting a single anonymous report`);
-          this.exportChannel(message);
+          this.exportChannel(message).then((textFile) => {
+            console.log(textFile.path);
+            message.channel.send({files: [{attachment: textFile.path, name: `${message.channel.name}_EXPORT.txt`}]});
+          });
           break;
         case 'exportall':
           console.log(`Exporting ${this.anonymousReports.length} existing anonymous reports`);
@@ -44,21 +48,23 @@ class AnonReports {
     }
   }
 
-  exportChannel(message) {
+  async exportChannel(message) {
+    //Returns {path: path to file, data: content of the file}
     let channelToExport = message.channel;
-    let messageCache = channelToExport.messages.fetch();
-    messageCache.then(allMessages => {
-      let exportedMessages = `Export of Anonymous Report Channel: ${message.channel.name}${String.fromCharCode(10)}`;
-      allMessages.forEach((history, historyID, collection) => {
-        if(history.content != '') {
-          exportedMessages = exportedMessages + `[${this.formatTimestamp(history.createdTimestamp)}] <${history.author.username}>: ${history.content}${String.fromCharCode(10)}`;
-        }
-        history.attachments.forEach((value, key, map) => {
-          exportedMessages = exportedMessages + `[${this.formatTimestamp(history.createdTimestamp)}] <${history.author.username}>: ${value.attachment}${String.fromCharCode(10)}`;
-        });
+    let allMessages = await channelToExport.messages.fetch();
+    
+    let exportedMessages = `Export of Anonymous Report Channel: ${message.channel.name}${String.fromCharCode(10)}`;
+    allMessages.forEach((history, historyID, collection) => {
+      if(history.content != '') {
+        exportedMessages = exportedMessages + `[${this.formatTimestamp(history.createdTimestamp)}] <${history.author.username}>: ${history.content}${String.fromCharCode(10)}`;
+      }
+      history.attachments.forEach((value, key, map) => {
+        exportedMessages = exportedMessages + `[${this.formatTimestamp(history.createdTimestamp)}] <${history.author.username}>: ${value.attachment}${String.fromCharCode(10)}`;
       });
-      let textFile = write.sync(`reportExports/${message.channel.name}_EXPORT.txt`, exportedMessages, {overwrite: true, newline: true});
     });
+    let textFile = await write(`reportExports/${message.channel.name}_EXPORT.txt`, exportedMessages, {overwrite: true, newline: true});
+    return textFile;
+    
   }
 
   formatTimestamp(timestampAsString) {
@@ -71,7 +77,7 @@ class AnonReports {
   parseMessage(message) {
     if (message.author.bot) return;
     if(this.anonymousReports.some(report => report.open && report.reportChannelID == message.channel.id)) {
-      this.passMessageToReporter(this.getActiveReportByChannelID(message.channel.id), message);
+      this.passMessageToReporter(this.getReportByChannelID(message.channel.id), message);
     }
   }
 
@@ -140,16 +146,16 @@ class AnonReports {
 
   adminReopenedReport(message) {
     message.reply(`You have reopened this anonymous report. The reporter will begin receiving any message sent to this channel and will be able to send messages to this channel as well. They have been notified of this.`);
-    this.getReporterByID(this.getActiveReportByChannelID(message.channel.id).reporterID).send(`The admins have reopened this report. They will now begin receiving any message you send in this DM and will be able to message you through the report channel.`);
-    this.getActiveReportByChannelID(message.channel.id).open = true;
-    this.getActiveReportByChannelID(message.channel.id).save()
+    this.getReporterByID(this.getReportByChannelID(message.channel.id).reporterID).send(`The admins have reopened this report. They will now begin receiving any message you send in this DM and will be able to message you through the report channel.`);
+    this.getReportByChannelID(message.channel.id).open = true;
+    this.getReportByChannelID(message.channel.id).save()
   }
 
   adminClosedReport(message) {
-    this.getActiveReportByChannelID(message.channel.id).open = false;
-    this.getActiveReportByChannelID(message.channel.id).save()
+    this.getReportByChannelID(message.channel.id).open = false;
+    this.getReportByChannelID(message.channel.id).save()
     message.reply(`You have closed this anonymous report. The reporter will no longer receive any messages sent to this channel nor be able to send messages to this channel. They have been notified as well.`);
-    this.getReporterByID(this.getActiveReportByChannelID(message.channel.id).reporterID).send(`The admins have closed this report. They will no longer receive any message sent to this channel nor can they message you through the report channel.`);
+    this.getReporterByID(this.getReportByChannelID(message.channel.id).reporterID).send(`The admins have closed this report. They will no longer receive any message sent to this channel nor can they message you through the report channel.`);
   }
 
   userClosedReport(message) {
@@ -184,10 +190,10 @@ class AnonReports {
   }
 
   getActiveReportByReporterID(reporterID) {
-    return this.anonymousReports.find(report => report.reporterID == reporterID);
+    return this.anonymousReports.find(report => report.open && report.reporterID == reporterID);
   }
 
-  getActiveReportByChannelID(channelID) {
+  getReportByChannelID(channelID) {
     return this.anonymousReports.find(report => report.reportChannelID == channelID);
   }
 

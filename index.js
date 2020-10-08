@@ -2,10 +2,13 @@ const Discord = require('discord.js');
 const Report = require('./Report.js');
 const mongoose = require('mongoose');
 const ReportSchema = require('./ReportSchema.js');
+const write = require('write');
 
 
 //Requires process.env.REPORTS_CATEGORY_ID
 //Requires process.env.HOME_GUILD
+
+//TODO: Implement a check for ?report export to make sure the command is used in a report channel
 
 class AnonReports {
   constructor(client) {
@@ -24,6 +27,7 @@ class AnonReports {
       switch(args[0].toLowerCase()) {
         case 'export':
           console.log(`Exporting a single anonymous report`);
+          this.exportChannel(message);
           break;
         case 'exportall':
           console.log(`Exporting ${this.anonymousReports.length} existing anonymous reports`);
@@ -38,6 +42,30 @@ class AnonReports {
           break;
       }
     }
+  }
+
+  exportChannel(message) {
+    let channelToExport = message.channel;
+    let messageCache = channelToExport.messages.fetch();
+    messageCache.then(allMessages => {
+      let exportedMessages = `Export of Anonymous Report Channel: ${message.channel.name}${String.fromCharCode(10)}`;
+      allMessages.forEach((history, historyID, collection) => {
+        if(history.content != '') {
+          exportedMessages = exportedMessages + `[${this.formatTimestamp(history.createdTimestamp)}] <${history.author.username}>: ${history.content}${String.fromCharCode(10)}`;
+        }
+        history.attachments.forEach((value, key, map) => {
+          exportedMessages = exportedMessages + `[${this.formatTimestamp(history.createdTimestamp)}] <${history.author.username}>: ${value.attachment}${String.fromCharCode(10)}`;
+        });
+      });
+      let textFile = write.sync(`reportExports/${message.channel.name}_EXPORT.txt`, exportedMessages, {overwrite: true, newline: true});
+    });
+  }
+
+  formatTimestamp(timestampAsString) {
+    // Create a new JavaScript Date object based on the timestamp
+    var date = new Date(timestampAsString);
+    let formattedTime = `${date.getMonth()}/${date.getDate()}/${date.getFullYear()} ${date.getHours()}:${date.getMinutes()}`;
+    return formattedTime;
   }
 
   parseMessage(message) {

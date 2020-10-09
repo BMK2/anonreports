@@ -56,7 +56,7 @@ class AnonReports {
   }
 
   parsePrivateMessage(message) {
-    if (message.content.indexOf(process.env.PREFIX) !== 0) {
+    if (message.content.indexOf(process.env.PREFIX) == 0) {
       const args = message.content.slice(process.env.PREFIX.length).trim().split(/ +/g);
       const command = args.shift().toLowerCase();
       switch(command) {

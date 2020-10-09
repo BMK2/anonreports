@@ -48,32 +48,6 @@ class AnonReports {
     }
   }
 
-  async exportChannel(message) {
-    //Returns {path: path to file, data: content of the file}
-    let channelToExport = message.channel;
-    let allMessages = await channelToExport.messages.fetch();
-    
-    let exportedMessages = `Export of Anonymous Report Channel: ${message.channel.name}${String.fromCharCode(10)}`;
-    allMessages.forEach((history, historyID, collection) => {
-      if(history.content != '') {
-        exportedMessages = exportedMessages + `[${this.formatTimestamp(history.createdTimestamp)}] <${history.author.username}>: ${history.content}${String.fromCharCode(10)}`;
-      }
-      history.attachments.forEach((value, key, map) => {
-        exportedMessages = exportedMessages + `[${this.formatTimestamp(history.createdTimestamp)}] <${history.author.username}>: ${value.attachment}${String.fromCharCode(10)}`;
-      });
-    });
-    let textFile = await write(`reportExports/${message.channel.name}_EXPORT.txt`, exportedMessages, {overwrite: true, newline: true});
-    return textFile;
-    
-  }
-
-  formatTimestamp(timestampAsString) {
-    // Create a new JavaScript Date object based on the timestamp
-    var date = new Date(timestampAsString);
-    let formattedTime = `${date.getMonth()}/${date.getDate()}/${date.getFullYear()} ${date.getHours()}:${date.getMinutes()}`;
-    return formattedTime;
-  }
-
   parseMessage(message) {
     if (message.author.bot) return;
     if(this.anonymousReports.some(report => report.open && report.reportChannelID == message.channel.id)) {
@@ -82,27 +56,29 @@ class AnonReports {
   }
 
   parsePrivateMessage(message) {
-    const args = message.content.slice(process.env.PREFIX.length).trim().split(/ +/g);
-    const command = args.shift().toLowerCase();
-    switch(command) {
-      case 'report':
-        if (args[0].toLowerCase() === 'open') {
-          if(this.hasActiveReport(message.author.id)) {
-            message.reply(`You already have a report open`);
-          } else {
-            this.openNewReport(message);
+    if (message.content.indexOf(process.env.PREFIX) !== 0) {
+      const args = message.content.slice(process.env.PREFIX.length).trim().split(/ +/g);
+      const command = args.shift().toLowerCase();
+      switch(command) {
+        case 'report':
+          if (args[0].toLowerCase() === 'open') {
+            if(this.hasActiveReport(message.author.id)) {
+              message.reply(`You already have a report open`);
+            } else {
+              this.openNewReport(message);
+            }
+            return;
           }
-          return;
-        }
-        if (args[0].toLowerCase() === 'close') {
-          if(!this.hasActiveReport(message.author.id)) {
-            message.reply(`You don't currently have a report open`);
-          } else {
-            this.userClosedReport(message);
+          if (args[0].toLowerCase() === 'close') {
+            if(!this.hasActiveReport(message.author.id)) {
+              message.reply(`You don't currently have a report open`);
+            } else {
+              this.userClosedReport(message);
+            }
+            return;
           }
-          return;
-        }
-        break;
+          break;
+      }
     }
     if(this.anonymousReports.some(report => report.open && report.reporterID == message.author.id)) {
       this.passMessageToChannel(this.getActiveReportByReporterID(message.author.id), message);
@@ -213,6 +189,13 @@ class AnonReports {
     return this.discordClient.guilds.cache.get(process.env.HOME_GUILD);
   }
 
+  formatTimestamp(timestampAsString) {
+    // Create a new JavaScript Date object based on the timestamp
+    var date = new Date(timestampAsString);
+    let formattedTime = `${date.getMonth()}/${date.getDate()}/${date.getFullYear()} ${date.getHours()}:${date.getMinutes()}`;
+    return formattedTime;
+  }
+
   createChannel(name, parent, topic, position) {
     let options = {type: 'text'};
     if( parent != null) options.parent = parent;
@@ -221,6 +204,23 @@ class AnonReports {
     return this.getHomeGuild().channels.create(name, options).catch(console.error);
   }
 
+  async exportChannel(message) {
+    //Returns {path: path to file, data: content of the file}
+    let channelToExport = message.channel;
+    let allMessages = await channelToExport.messages.fetch();
+    
+    let exportedMessages = `Export of Anonymous Report Channel: ${message.channel.name}${String.fromCharCode(10)}`;
+    allMessages.forEach((history, historyID, collection) => {
+      if(history.content != '') {
+        exportedMessages = exportedMessages + `[${this.formatTimestamp(history.createdTimestamp)}] <${history.author.username}>: ${history.content}${String.fromCharCode(10)}`;
+      }
+      history.attachments.forEach((value, key, map) => {
+        exportedMessages = exportedMessages + `[${this.formatTimestamp(history.createdTimestamp)}] <${history.author.username}>: ${value.attachment}${String.fromCharCode(10)}`;
+      });
+    });
+    let textFile = await write(`reportExports/${message.channel.name}_EXPORT.txt`, exportedMessages, {overwrite: true, newline: true});
+    return textFile;
+  }
 }
 
 module.exports = AnonReports;

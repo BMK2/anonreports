@@ -10,8 +10,8 @@
     "botsmk2"
   ],
   "dependencies": {
-    "discord.js": "12.2.0",
-    "mongoose": "5.9.10",
+    "discord.js": "12.3.1",
+    "mongoose": "5.10.9",
     "write": "2.0.0"
   }
 }

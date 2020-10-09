@@ -86,7 +86,7 @@ class AnonReports {
   }
 
   passMessageToChannel(activeReport, message) {
-    let reportChannel = this.getActiveChannelByID(activeReport.reportChannelID);
+    let reportChannel = this.getChannelByID(activeReport.reportChannelID);
     reportChannel.send(message.content);
     for(let attachment of message.attachments) {
       reportChannel.send(attachment);
@@ -135,9 +135,10 @@ class AnonReports {
   }
 
   userClosedReport(message) {
-    this.getActiveReportByReporterID(message.author.id).open = false;
-    this.getActiveReportByReporterID(message.author.id).save()
-    this.getActiveChannelByID(this.getActiveReportByReporterID(message.author.id).reportChannelID).send(`The reporter has closed this report and will no longer receive any messages sent to this channel`);
+    let report = this.getActiveReportByReporterID(message.author.id)
+    report.open = false;
+    report.save();
+    this.getChannelByID(report.reportChannelID).send(`The reporter has closed this report and will no longer receive any messages sent to this channel`);
     message.reply(`You have closed the anonymous report. I will no longer convey your messages to the admins`);
   }
 
@@ -173,7 +174,7 @@ class AnonReports {
     return this.anonymousReports.find(report => report.reportChannelID == channelID);
   }
 
-  getActiveChannelByID(channelID) {
+  getChannelByID(channelID) {
     return this.getHomeGuild().channels.cache.get(channelID);
   }
 

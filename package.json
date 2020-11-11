@@ -3,7 +3,7 @@
   "version": "1.6.0",
   "description": "Allows users to make anonymous reports to the admins",
   "license": "MIT",
-  "repository": "battlemanmk2/anonreports",
+  "repository": "cdrobinson/anonreports",
   "main": "index.js",
   "keywords": [
     "battlemanmk2",
